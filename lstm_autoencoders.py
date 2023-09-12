@@ -1,74 +1,47 @@
 import torch
 import torch.nn as nn
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu') # if gpu is available use gpu
-class Encoder(nn.Module):
 
-    def __init__(self, seq_len, n_features, embedding_dim = 256):
-        super(Encoder, self).__init__()
 
-        self.seq_len, self.n_features = seq_len, n_features
-        self.embedding_dim, self.hidden_dim = embedding_dim, 2 * embedding_dim
+class LSTMAutoencoder(nn.Module):
+    def __init__(self, input_dim, hidden_dim, num_layers=1, bidirectional=False):
+        super(LSTMAutoencoder, self).__init__()
 
-        self.rnn1 = nn.LSTM(
-          input_size = n_features,
-          hidden_size = self.hidden_dim,
-          num_layers = 1,
-          batch_first = True
+        # Encoder
+        self.encoder = nn.LSTM(
+            input_size=input_dim,  # (batch_size, seq_length, input_dim)
+            hidden_size=hidden_dim,  # (batch_size, seq_length, hidden_dim)
+            num_layers=num_layers,
+            bidirectional=bidirectional,
+            batch_first=True
         )
 
-        self.rnn2 = nn.LSTM(
-          input_size = self.hidden_dim,
-          hidden_size = embedding_dim,
-          num_layers = 1,
-          batch_first = True
+        # Decoder
+        self.decoder = nn.LSTM(
+            input_size=hidden_dim,  # (batch_size, seq_length, hidden_dim)
+            hidden_size=hidden_dim,  # (batch_size, seq_length, input_dim)
+            num_layers=num_layers,
+            bidirectional=bidirectional,
+            batch_first=True
         )
 
-    def forward(self, x):
-        x = x.reshape((1, self.seq_len, self.n_features))
-        x, (_, _) = self.rnn1(x)
-        x, (hidden_n, _) = self.rnn2(x)
-        return hidden_n.reshape((self.n_features, self.embedding_dim))
+        # Linear layer to transform final step of decoder to original space
+        self.linear = nn.Linear(2 * hidden_dim if bidirectional else hidden_dim, input_dim)
 
-class Decoder(nn.Module):
-    def __init__(self, seq_len, input_dim=256, n_features=1):
-        super(Decoder, self).__init__()
+    def forward(self, x):  # x: (batch_size, seq_length, input_dim)
+        # Encoder
+        _, (hidden_state, cell_state) = self.encoder(x)  # hidden_state: (num_layers, batch_size, hidden_dim)
 
-        self.seq_len, self.input_dim = seq_len, input_dim
-        self.hidden_dim, self.n_features = 2 * input_dim, n_features
+        # Use the encoder's hidden state as the initial hidden state for the decoder
+        seq_len = x.size(1)
+        context_vector = hidden_state.repeat(seq_len, 1, 1).transpose(0, 1)  # context_vector: (batch_size, seq_length, hidden_dim)
 
-        self.rnn1 = nn.LSTM(
-          input_size = input_dim,
-          hidden_size = input_dim,
-          num_layers = 1,
-          batch_first = True
-        )
+        # Decoder
+        x_decoded, _ = self.decoder(context_vector,
+                                    (hidden_state, cell_state))  # x_decoded: (batch_size, seq_length, input_dim)
 
-        self.rnn2 = nn.LSTM(
-          input_size = input_dim,
-          hidden_size = self.hidden_dim,
-          num_layers = 1,
-          batch_first = True
-        )
+        # If using bidirectional LSTM, transform to original space
+        x_decoded = self.linear(x_decoded)  # x_decoded: (batch_size, seq_length, input_dim)
 
-        self.output_layer = nn.Linear(self.hidden_dim, n_features)
+        return x_decoded
 
-    def forward(self, x):
-        x = x.repeat(self.seq_len, self.n_features)
-        x = x.reshape((self.n_features, self.seq_len, self.input_dim))
-        x, (hidden_n, cell_n) = self.rnn1(x)
-        x, (hidden_n, cell_n) = self.rnn2(x)
-        x = x.reshape((self.seq_len, self.hidden_dim))
-        return self.output_layer(x)
-
-class RecurrentAutoencoder(nn.Module):
-    def __init__(self, seq_len, n_features, embedding_dim=256):
-        super(RecurrentAutoencoder, self).__init__()
-        self.encoder = Encoder(seq_len, n_features, embedding_dim).to(device)
-        self.decoder = Decoder(seq_len, embedding_dim, n_features).to(device)
-
-    def forward(self, x):
-        x = self.encoder(x)
-        x = self.decoder(x)
-        return x
-
-    

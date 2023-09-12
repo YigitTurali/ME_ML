@@ -81,32 +81,32 @@ data_path = os.path.join(current_working_directory, 'raw_data')
 i = 0
 for file in os.listdir(data_path):
     i += 1
-    # if file.endswith(".mat") and not file.endswith(".csv"):
-    #     data_dict = {}
-    #     data_raw = data_transfer(sio.loadmat(f'{data_path}/{file}'))
-    #     [data_raw.pop(key, None) for key in ["first","last"]]
-    #     data_dict[file] = pd.DataFrame(data_raw)
-    #
-    #     data_raw = data_transfer(sio.loadmat(f'{data_path}/{file}'))
-    #     data_dict[f"{file}_labels"] = pd.DataFrame(np.array([data_raw["first"],data_raw["first"]]).reshape(-1,2),columns=["first","last"])
-    #     data_dict[file] = event_finder(data_dict[file], data_dict[f"{file}_labels"])
-    #     time_event = data_dict[file][["Event"]]
-    #     data_dict[file].drop(columns=["timeS", "Event"], inplace=True)
-    #     data_dict[file][["Event"]] = time_event
-    #
-    #     num_rows_per_file = 30000
-    #     num_files = len(data_dict[file]) // num_rows_per_file + 1
-    #     for j in range(num_files):
-    #         start_index = i * num_rows_per_file
-    #         end_index = (i + 1) * num_rows_per_file
-    #
-    #         # Slice the data for the current file
-    #         subset_data = data_dict[file].iloc[start_index:end_index]
-    #         subset_labels = data_dict[f"{file}_labels"].iloc[start_index:end_index]
-    #
-    #         # Save the subset to a new CSV file
-    #         subset_data.to_csv(f'{data_path}/{i}_part_{j}.csv', index=False)
-    #         print(f"Process {i}:{j} is done")
+    if file.endswith(".mat") and not file.endswith(".csv"):
+        data_dict = {}
+        data_raw = data_transfer(sio.loadmat(f'{data_path}/{file}'))
+        [data_raw.pop(key, None) for key in ["first","last"]]
+        data_dict[file] = pd.DataFrame(data_raw)
+
+        data_raw = data_transfer(sio.loadmat(f'{data_path}/{file}'))
+        data_dict[f"{file}_labels"] = pd.DataFrame(np.array([data_raw["first"],data_raw["first"]]).reshape(-1,2),columns=["first","last"])
+        data_dict[file] = event_finder(data_dict[file], data_dict[f"{file}_labels"])
+        time_event = data_dict[file][["Event"]]
+        data_dict[file].drop(columns=["timeS", "Event"], inplace=True)
+        data_dict[file][["Event"]] = time_event
+
+        num_rows_per_file = 30000
+        num_files = len(data_dict[file]) // num_rows_per_file + 1
+        for j in range(num_files):
+            start_index = i * num_rows_per_file
+            end_index = (i + 1) * num_rows_per_file
+
+            # Slice the data for the current file
+            subset_data = data_dict[file].iloc[start_index:end_index]
+            subset_labels = data_dict[f"{file}_labels"].iloc[start_index:end_index]
+
+            # Save the subset to a new CSV file
+            subset_data.to_csv(f'{data_path}/{i}_part_{j}.csv', index=False)
+            print(f"Process {i}:{j} is done")
 
 all_files = [os.path.join(data_path, file) for file in os.listdir(data_path)[:10] if file.endswith('.csv')]
 list_of_dfs = [pd.read_csv(file) for file in all_files]
