@@ -1,13 +1,13 @@
-import torch
-import torch.nn as nn
-from torch import nn, optim
-import torch.nn.functional as F
-import numpy as np
 import copy
-import pandas as pd
-from lstm_autoencoders import LSTMAutoencoder
+import numpy as np
+import torch
+from tqdm import tqdm
 from sklearn.model_selection import train_test_split
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu') # if gpu is available use gpu
+
+from lstm_autoencoders import LSTMAutoencoder
+
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')  # if gpu is available use gpu
+
 
 def add_more_noise(data, noise_factor=0.25):
     noise = torch.randn_like(data) * noise_factor
@@ -17,13 +17,15 @@ def add_more_noise(data, noise_factor=0.25):
 class TimeSeriesDataset(torch.utils.data.Dataset):
     def __init__(self, X):
         self.X = X
+
     def __len__(self):
         return len(self.X)
+
     def __getitem__(self, idx):
         return self.X[idx]
 
 
-def train_model(model,train_dataloader,val_dataloader,n_epochs):
+def train_model(model, train_dataloader, val_dataloader, n_epochs):
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
     criterion = torch.nn.L1Loss(reduction='sum').to(device)
     history = dict(train=[], val=[])
@@ -33,7 +35,8 @@ def train_model(model,train_dataloader,val_dataloader,n_epochs):
     for epoch in range(1, n_epochs + 1):
         model = model.train()
         train_losses = []
-        for seq_true in train_dataloader:
+        pbar = tqdm(train_dataloader, desc=f"Epoch {epoch}")
+        for seq_true in pbar:
             seq_true = seq_true.to(device)
             seq_noisy = add_more_noise(seq_true).to(device)
             optimizer.zero_grad()
@@ -68,7 +71,7 @@ X_train = torch.from_numpy(X_train).float()
 y_train = np.load("y_train.npy")
 y_train = torch.from_numpy(y_train).int()
 
-X_train, X_val, y_train, y_val = train_test_split(X_train,y_train,test_size=0.2, random_state=42,shuffle=False)
+X_train, X_val, y_train, y_val = train_test_split(X_train, y_train, test_size=0.2, random_state=42, shuffle=False)
 
 train_dataset = TimeSeriesDataset(X_train)
 del X_train, y_train
@@ -78,15 +81,10 @@ train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=64, shu
 val_dataloader = torch.utils.data.DataLoader(val_dataset, batch_size=len(val_dataset), shuffle=True)
 
 model = LSTMAutoencoder(3, 256).to(device)
-train_model(model,train_dataloader,val_dataloader,100)
-
-
+train_model(model, train_dataloader, val_dataloader, 100)
 
 # X_test = np.load("X_test.npy")
 # X_test = torch.from_numpy(X_test).float()
 
 # y_test = np.load("y_test.npy")
 # y_test = torch.from_numpy(y_test).int()
-
-
-
