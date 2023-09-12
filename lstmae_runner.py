@@ -83,8 +83,39 @@ val_dataloader = torch.utils.data.DataLoader(val_dataset, batch_size=len(val_dat
 model = LSTMAutoencoder(3, 256).to(device)
 train_model(model, train_dataloader, val_dataloader, 100)
 
-# X_test = np.load("X_test.npy")
-# X_test = torch.from_numpy(X_test).float()
+
+all_train_errors = []
+for batch_data in train_dataloader:
+    with torch.no_grad():
+        outputs = model(batch_data)
+        batch_errors = torch.mean((batch_data - outputs) ** 2, dim=[1, 2])
+        all_train_errors.extend(batch_errors.cpu().numpy())
+
+# Threshold for anomaly detection
+threshold = np.percentile(all_train_errors, 95)
+
+# Anomaly detection
+def detect_anomaly(data_loader):
+    anomalies = []
+    for batch_data in data_loader:
+        with torch.no_grad():
+            outputs = model(batch_data)
+            batch_errors = torch.mean((batch_data - outputs) ** 2, dim=[1, 2])
+            batch_anomalies = batch_errors > threshold
+            anomalies.extend(batch_anomalies.cpu().numpy())
+    return anomalies
+
+# Detect anomalies in test data
+
+
+X_test = np.load("X_test.npy")
+X_test = torch.from_numpy(X_test).float()
+
+test_dataset = TimeSeriesDataset(X_test)
+
+test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=64, shuffle=True)
+
+test_anomalies = detect_anomaly(test_dataloader)
 
 # y_test = np.load("y_test.npy")
 # y_test = torch.from_numpy(y_test).int()
