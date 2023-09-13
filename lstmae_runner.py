@@ -27,7 +27,7 @@ class TimeSeriesDataset(torch.utils.data.Dataset):
 
 def train_model(model, train_dataloader, val_dataloader, n_epochs):
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
-    criterion = torch.nn.L1Loss(reduction='sum').to(device)
+    criterion = torch.nn.L1Loss().to(device)
     history = dict(train=[], val=[])
     best_model_wts = copy.deepcopy(model.state_dict())
     best_loss = torch.inf
@@ -78,9 +78,9 @@ del X_train, y_train
 val_dataset = TimeSeriesDataset(X_val)
 del X_val, y_val
 train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=64, shuffle=True)
-val_dataloader = torch.utils.data.DataLoader(val_dataset, batch_size=len(val_dataset), shuffle=True)
+val_dataloader = torch.utils.data.DataLoader(val_dataset, batch_size=64, shuffle=True)
 
-model = LSTMAutoencoder(3, 256).to(device)
+model = LSTMAutoencoder(3, 64).to(device)
 train_model(model, train_dataloader, val_dataloader, 100)
 
 
